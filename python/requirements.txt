@@ -1,0 +1,6 @@
+flask>=3.0.0
+flask-cors>=4.0.0
+rdkit>=2022.3.0
+pandas>=2.0.0
+pillow>=9.0.0
+numpy>=1.23.0

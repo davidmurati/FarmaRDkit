@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RDKit Pharma Lab — Análisis de Solubilidad</title>
+  <meta name="description" content="Panel de control farmacéutico para análisis de solubilidad usando RDKit y el Dataset ESOL de Delaney">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+<div class="app-layout">
+
+  <!-- ── HEADER ── -->
+  <header class="app-header">
+    <div class="header-brand">
+      <div class="header-logo">🧬</div>
+      <div>
+        <div class="header-title">RDKit Pharma Lab</div>
+        <div class="header-sub">Dataset ESOL de Delaney • Análisis Molecular Avanzado</div>
+      </div>
+    </div>
+    <span class="header-badge" id="dbStatus">⏳ Cargando biblioteca…</span>
+  </header>
+
+  <!-- ── SIDEBAR ── -->
+  <aside class="sidebar">
+    <div class="sidebar-controls">
+      <div class="search-wrap">
+        <span class="icon">🔍</span>
+        <input id="molSearch" type="text" placeholder="Buscar molécula o SMILES…" autocomplete="off">
+      </div>
+      <div class="filter-row">
+        <button class="filter-btn active" data-filter="">Todas</button>
+        <button class="filter-btn" data-filter="Altamente soluble">Alta</button>
+        <button class="filter-btn" data-filter="Muy soluble">Muy sol.</button>
+        <button class="filter-btn" data-filter="Soluble">Soluble</button>
+        <button class="filter-btn" data-filter="Moderadamente soluble">Mod.</button>
+        <button class="filter-btn" data-filter="Poco soluble">Poco</button>
+        <button class="filter-btn" data-filter="Insoluble">Ins.</button>
+      </div>
+    </div>
+    <div class="mol-count" id="molCount">0 moléculas</div>
+    <div class="mol-list" id="molList">
+      <div class="spinner-wrap"><div class="spinner"></div><span>Cargando…</span></div>
+    </div>
+  </aside>
+
+  <!-- ── MAIN PANEL ── -->
+  <main class="main-panel" id="mainPanel">
+    <div class="welcome-screen" id="welcomeScreen">
+      <div class="welcome-icon">⚗️</div>
+      <h2>Selecciona una molécula</h2>
+      <p>Elige un compuesto del panel lateral para comenzar el análisis de solubilidad y propiedades fisicoquímicas con RDKit.</p>
+      <div class="stats-bar" id="globalStats" style="margin-top:24px;">
+        <div class="stat-item"><div class="stat-value" id="statTotal">—</div><div class="stat-label">Total moléculas</div></div>
+        <div class="stat-item"><div class="stat-value" id="statSoluble">—</div><div class="stat-label">Solubles</div></div>
+        <div class="stat-item"><div class="stat-value" id="statInsoluble">—</div><div class="stat-label">Insolubles</div></div>
+        <div class="stat-item"><div class="stat-value" id="statAvgLogs">—</div><div class="stat-label">logS promedio</div></div>
+      </div>
+    </div>
+
+    <div id="analysisPanel" style="display:none;">
+      <!-- Molecule header -->
+      <div class="mol-header">
+        <div class="mol-header-info">
+          <h2 id="panelMolName">—</h2>
+          <div class="smiles-text" id="panelSmiles">—</div>
+        </div>
+        <div style="display:flex; gap:12px; align-items:center;">
+          <button class="btn btn-danger" id="btnDeleteMol" style="display:none;" title="Eliminar molécula permanente">
+            🗑️ Eliminar
+          </button>
+          <div class="sol-badge" id="panelSolBadge">—</div>
+        </div>
+      </div>
+
+      <!-- Tab bar -->
+      <div class="tab-bar">
+        <button class="tab-btn active" data-tab="estructura">🧪 Estructura</button>
+        <button class="tab-btn" data-tab="solubilidad">💧 Solubilidad</button>
+        <button class="tab-btn" data-tab="propiedades">⚗️ Propiedades</button>
+        <button class="tab-btn" data-tab="lipinski">🔬 Lipinski</button>
+        <button class="tab-btn" data-tab="admet">🎯 ADMET</button>
+        <button class="tab-btn" data-tab="similitud">🔍 Similitud</button>
+        <button class="tab-btn" data-tab="descriptores">📊 Descriptores</button>
+        <button class="tab-btn" data-tab="subestructura">🔭 Sub-Estructura</button>
+      </div>
+
+      <!-- ── Tab: ESTRUCTURA ── -->
+      <div class="tab-panel active" id="tab-estructura">
+        <div class="card">
+          <div class="card-title">🧪 Estructura Molecular 2D</div>
+          <div id="structureContent"><div class="spinner-wrap"><div class="spinner"></div></div></div>
+        </div>
+      </div>
+
+      <!-- ── Tab: SOLUBILIDAD ── -->
+      <div class="tab-panel" id="tab-solubilidad">
+        <div class="card">
+          <div class="card-title">💧 Solubilidad Acuosa (ESOL)</div>
+          <div id="solubilityContent"><div class="spinner-wrap"><div class="spinner"></div></div></div>
+        </div>
+        <div class="card">
+          <div class="card-title">📖 ¿Qué es ESOL?</div>
+          <p style="font-size:0.83rem;color:var(--text-secondary);line-height:1.7;">
+            El modelo <strong style="color:var(--accent-blue)">ESOL</strong> (Estimated SOLubility) de Delaney (2004) 
+            predice la solubilidad acuosa de compuestos orgánicos directamente desde su estructura molecular. 
+            La ecuación usa cuatro descriptores: <em>LogP, peso molecular, enlaces rotables y fracción de carbonos aromáticos</em>.
+            El valor <strong>logS</strong> es el logaritmo base 10 de la solubilidad en mol/L.
+          </p>
+          <div style="margin-top:12px;font-family:'Courier New',monospace;font-size:0.78rem;background:rgba(255,255,255,0.04);padding:10px;border-radius:8px;color:var(--accent-teal);">
+            logS = 0.16 − 0.63·cLogP − 0.0062·MW + 0.066·RB − 0.74·AP
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Tab: PROPIEDADES ── -->
+      <div class="tab-panel" id="tab-propiedades">
+        <div class="card">
+          <div class="card-title">⚗️ Propiedades Fisicoquímicas</div>
+          <div id="propertiesContent"><div class="spinner-wrap"><div class="spinner"></div></div></div>
+        </div>
+      </div>
+
+      <!-- ── Tab: LIPINSKI ── -->
+      <div class="tab-panel" id="tab-lipinski">
+        <div class="card">
+          <div class="card-title">🔬 Regla de los Cinco (Lipinski, 1997)</div>
+          <div id="lipinskiContent"><div class="spinner-wrap"><div class="spinner"></div></div></div>
+        </div>
+        <div class="card">
+          <div class="card-title">📖 ¿Qué es la Regla de Cinco?</div>
+          <p style="font-size:0.83rem;color:var(--text-secondary);line-height:1.7;">
+            La <strong style="color:var(--accent-purple)">Regla de Lipinski</strong> predice si un compuesto tiene 
+            buenas propiedades de absorción/permeabilidad oral. Un fármaco <em>drug-like</em> no debe violar más de 
+            una de las cuatro reglas. Esta regla se aplica a fármacos que actúan sistémicamente (no a antibióticos, 
+            antifúngicos, vitaminas ni sustratos de transportadores).
+          </p>
+        </div>
+      </div>
+
+      <!-- ── Tab: ADMET ── -->
+      <div class="tab-panel" id="tab-admet">
+        <div class="card">
+          <div class="card-title">🎯 Perfil ADMET</div>
+          <div id="admetContent"><div class="spinner-wrap"><div class="spinner"></div></div></div>
+        </div>
+        <div class="card">
+          <div class="card-title">📖 ¿Qué es ADMET?</div>
+          <p style="font-size:0.83rem;color:var(--text-secondary);line-height:1.7;">
+            <strong style="color:var(--accent-orange)">ADMET</strong> evalúa cinco propiedades farmacocinéticas: 
+            <em>Absorción</em> (A), <em>Distribución</em> (D), <em>Metabolismo</em> (M), <em>Excreción</em> (E) 
+            y <em>Toxicidad</em> (T). Estos valores son estimaciones heurísticas basadas en los descriptores 
+            moleculares calculados por RDKit.
+          </p>
+        </div>
+      </div>
+
+      <!-- ── Tab: SIMILITUD ── -->
+      <div class="tab-panel" id="tab-similitud">
+        <div class="card">
+          <div class="card-title">🔍 Moléculas Similares (Fingerprint Morgan + Tanimoto)</div>
+          <div id="similarityContent"><div class="spinner-wrap"><div class="spinner"></div></div></div>
+        </div>
+      </div>
+
+      <!-- ── Tab: DESCRIPTORES ── -->
+      <div class="tab-panel" id="tab-descriptores">
+        <div class="card">
+          <div class="card-title">📊 Descriptores RDKit (200+)</div>
+          <div class="desc-search-wrap">
+            <input id="descSearch" type="text" placeholder="Filtrar descriptores…">
+          </div>
+          <div id="descriptorsContent"><div class="spinner-wrap"><div class="spinner"></div></div></div>
+        </div>
+      </div>
+
+      <!-- ── Tab: SUBESTRUCTURA ── -->
+      <div class="tab-panel" id="tab-subestructura">
+        <div class="card">
+          <div class="card-title">🔭 Búsqueda por Subestructura (SMARTS)</div>
+          <p style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:10px;">
+            Busca todas las moléculas de la biblioteca que contengan el patrón SMARTS indicado.
+          </p>
+          <div class="smarts-presets">
+            <span style="font-size:0.72rem;color:var(--text-muted);align-self:center;">Atajos:</span>
+            <button class="preset-btn" data-smarts="c1ccccc1">Benceno</button>
+            <button class="preset-btn" data-smarts="[OH]">OH</button>
+            <button class="preset-btn" data-smarts="[NH2]">NH₂</button>
+            <button class="preset-btn" data-smarts="C(=O)O">Ácido carbox.</button>
+            <button class="preset-btn" data-smarts="C(=O)N">Amida</button>
+            <button class="preset-btn" data-smarts="[#6]-[#7]">C-N</button>
+            <button class="preset-btn" data-smarts="[F,Cl,Br,I]">Halógeno</button>
+            <button class="preset-btn" data-smarts="S">Azufre</button>
+          </div>
+          <div class="smarts-row">
+            <input id="smartsInput" type="text" placeholder="e.g. c1ccccc1  ó  [OH]  ó  C(=O)N" autocomplete="off">
+            <button class="btn btn-primary" id="smartsSearchBtn">🔍 Buscar</button>
+          </div>
+          <div id="substructureContent"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- ── FLOATING ACTION BUTTONS ── -->
+<div class="fab-group">
+  <button class="fab fab-reaction" id="fabReaction" title="Simular una reacción química">
+    <span class="fab-icon">⚗️</span>
+    <span class="fab-label">Simular Reacción</span>
+  </button>
+  <button class="fab" id="fabNewMol" title="Crear nueva molécula">
+    <span class="fab-icon">➕</span>
+    <span class="fab-label">Nueva Molécula</span>
+  </button>
+</div>
+
+<!-- ── MOLECULE BUILDER MODAL ── -->
+<div class="modal-overlay" id="molBuilderOverlay">
+  <div class="modal" id="molBuilderModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal-header">
+      <div class="modal-title" id="modalTitle">🧪 Crear / Agregar Molécula</div>
+      <button class="modal-close" id="modalClose" aria-label="Cerrar">✕</button>
+    </div>
+
+    <div class="modal-body">
+      <!-- Inputs -->
+      <div class="builder-field">
+        <label class="builder-label" for="molNameInput">Nombre de la molécula</label>
+        <input id="molNameInput" type="text" class="builder-input" placeholder="Ej: Aspirina, Losartán…" autocomplete="off">
+      </div>
+      <div class="builder-field">
+        <label class="builder-label" for="molSmilesInput">SMILES</label>
+        <input id="molSmilesInput" type="text" class="builder-input smiles-font"
+          placeholder="Ej: CC(=O)Oc1ccccc1C(=O)O" autocomplete="off" spellcheck="false">
+        <div class="builder-hint">
+          Obtén el SMILES en
+          <a href="https://pubchem.ncbi.nlm.nih.gov" target="_blank" rel="noopener">PubChem</a> o
+          <a href="https://www.cheminfo.org/Chemistry/Cheminformatics/FormatConverter/index.html" target="_blank" rel="noopener">ChemInfo</a>
+        </div>
+      </div>
+      <div class="builder-field">
+        <label class="builder-label" for="molLogsInput">logS medido (opcional)</label>
+        <input id="molLogsInput" type="number" class="builder-input" placeholder="Ej: -2.5  (si lo conoces)" step="0.01">
+      </div>
+
+      <!-- Validate button -->
+      <button class="btn btn-primary" id="validateBtn" style="width:100%;justify-content:center;margin-top:4px;">
+        🔬 Validar Molécula
+      </button>
+
+      <!-- Validation result area -->
+      <div id="validationResult" style="display:none;margin-top:18px;"></div>
+
+      <!-- Save button -->
+      <button class="btn btn-save" id="saveBtn" style="display:none;width:100%;justify-content:center;margin-top:12px;">
+        💾 Guardar en Biblioteca
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── REACTION SIMULATOR MODAL ── -->
+<div class="modal-overlay" id="reactionOverlay">
+  <div class="modal modal-wide" id="reactionModal" role="dialog" aria-modal="true" aria-labelledby="rxnModalTitle">
+    <div class="modal-header">
+      <div class="modal-title" id="rxnModalTitle">⚗️ Simulación de Reacciones Químicas</div>
+      <button class="modal-close" id="rxnModalClose" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="modal-body">
+
+      <!-- Reaction type selector -->
+      <div class="builder-field">
+        <label class="builder-label" for="rxnTypeSelect">Tipo de Reacción</label>
+        <select id="rxnTypeSelect" class="builder-input rxn-select">
+          <option value="esterification">🧴 Esterificación</option>
+          <option value="amide">💊 Formación de Amida</option>
+          <option value="imine">🔗 Formación de Imina (Condensación)</option>
+          <option value="reduction_ketone">⬇️ Reducción de Cetona/Aldehído</option>
+          <option value="oxidation_alcohol">⬆️ Oxidación de Alcohol Primario</option>
+          <option value="alkylation">⛓️ N-Alquilación (Sustitución)</option>
+          <option value="halogenation">🧪 Halogenación Aromática (EAS)</option>
+          <option value="diels_alder">🔄 Cicloadición Diels-Alder [4+2]</option>
+        </select>
+        <div class="rxn-explanation" id="rxnExplanation"></div>
+      </div>
+
+      <!-- Reactants row -->
+      <div class="rxn-inputs-row">
+        <!-- Reactant 1 -->
+        <div class="rxn-reactant-field">
+          <label class="builder-label" for="rxnR1">Reactivo 1</label>
+          <input id="rxnR1" type="text" class="builder-input smiles-font"
+            placeholder="SMILES del Reactivo 1" autocomplete="off" spellcheck="false">
+          <div class="rxn-hint" id="rxnR1Hint"></div>
+          <button class="btn btn-ghost rxn-use-current" id="rxnUseCurrentBtn"
+            title="Usar la molécula actualmente seleccionada">
+            📌 Usar molécula activa
+          </button>
+        </div>
+
+        <!-- Plus sign -->
+        <div class="rxn-plus" id="rxnPlus">+</div>
+
+        <!-- Reactant 2 -->
+        <div class="rxn-reactant-field" id="rxnR2Field">
+          <label class="builder-label" for="rxnR2">Reactivo 2</label>
+          <input id="rxnR2" type="text" class="builder-input smiles-font"
+            placeholder="SMILES del Reactivo 2" autocomplete="off" spellcheck="false">
+          <div class="rxn-hint" id="rxnR2Hint"></div>
+        </div>
+      </div>
+
+      <!-- Simulate button -->
+      <button class="btn btn-primary" id="rxnSimulateBtn" style="width:100%;justify-content:center;margin-top:8px;">
+        ⚗️ Simular Reacción
+      </button>
+
+      <!-- Result area -->
+      <div id="rxnResult" style="margin-top:20px;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── TOAST ── -->
+<div class="toast" id="toast"></div>
+
+<script src="/js/app.js"></script>
+</body>
+</html>
