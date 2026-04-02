@@ -937,3 +937,16 @@ function renderReactionResult(data) {
     `;
 }
 
+// ─── SHUTDOWN APP ────────────────────────────────────────────────────────────
+document.getElementById('btnExitApp')?.addEventListener('click', async () => {
+    if (!confirm("¿Deseas apagar los servidores y salir de la aplicación?")) return;
+    try {
+        await fetch('/shutdown', { method: 'POST' });
+        document.body.innerHTML = '<div style="display:flex;height:100vh;align-items:center;justify-content:center;background:#0f172a;color:white;font-family:Inter,sans-serif;flex-direction:column;"><h1>Servidores apagados exitosamente.</h1><p style="color:#94a3b8;margin-top:10px;">Ya puedes cerrar esta pestaña.</p></div>';
+    } catch(e) {
+        showToast("Se envió la señal de apagado", true);
+        setTimeout(() => {
+            document.body.innerHTML = '<div style="display:flex;height:100vh;align-items:center;justify-content:center;background:#0f172a;color:white;font-family:Inter,sans-serif;flex-direction:column;"><h1>Servidores apagados exitosamente.</h1><p style="color:#94a3b8;margin-top:10px;">Ya puedes cerrar esta pestaña.</p></div>';
+        }, 1000);
+    }
+});

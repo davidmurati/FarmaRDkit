@@ -10,6 +10,23 @@ const app = express();
 const PORT = 3000;
 const PYTHON_API = 'http://localhost:5000';
 
+// Ruta para apagar los servidores
+app.post('/shutdown', (req, res) => {
+    res.json({ message: "Apagando servidores..." });
+    console.log("\n[NODE] Señal de apagado recibida. Deteniendo servidores...");
+    
+    // Enviar señal de apagado al backend Python
+    const http = require('http');
+    const reqPy = http.request('http://localhost:5000/shutdown', { method: 'POST' });
+    reqPy.on('error', () => {}); // ignorar si ya se cerró
+    reqPy.end();
+    
+    // Salir del proceso Node.js (cierra el servidor)
+    setTimeout(() => {
+        process.exit(0);
+    }, 500);
+});
+
 // Servir archivos estáticos del frontend
 app.use(express.static(path.join(__dirname, 'public')));
 

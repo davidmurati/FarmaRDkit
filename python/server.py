@@ -944,7 +944,16 @@ def get_reactions():
 def health():
     return jsonify({"status": "ok", "rdkit": "loaded"})
 
-
+@app.route('/shutdown', methods=['POST'])
+def shutdown():
+    """Apaga el servidor Flask de forma limpia y abrupta."""
+    import os
+    import threading
+    def kill_server():
+        os._exit(0)
+    # Esperamos 300ms para asegurar que responda el HTTP 200 al frontend
+    threading.Timer(0.3, kill_server).start()
+    return jsonify({"success": True, "message": "Backend apagándose"})
 
 
 if __name__ == '__main__':
